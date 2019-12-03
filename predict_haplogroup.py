@@ -140,6 +140,7 @@ def get_putative_hg_list(init_hg, hg, df_haplogroup_trimmed, df_haplogroup_all):
             except ZeroDivisionError as error:
                 qc_three = 0.0
             dict_hg[putative_hg] = [qc_two,qc_three]                                        
+            
     # if dictionary empty
     #print(dict_hg)
     if not bool(dict_hg):
@@ -243,6 +244,19 @@ def get_putative_ancenstral_hg(df_haplogroup, putative_hg):
         putative_ancestral_hg = pd.DataFrame(putative_ancestral_hg)
     return putative_ancestral_hg
 
+
+def process_keys(keys):
+    tmp_hg = []
+    for i in range(len(keys)):        
+        if "~" in keys[i]:    
+            tmp_hg.append(keys[i])    
+    for i in tmp_hg:
+        if i in keys:
+            index = keys.index(i)
+            keys.pop(index)
+    return keys, tmp_hg
+
+
 def process_log(log_file):
     log_file += "log"                        
     total_reads = "NA"
@@ -282,12 +296,12 @@ if __name__ == "__main__":
         
         df_intermediate = pd.read_csv(intermediate_tree_table, header=None, engine='python')
         intermediates = df_intermediate[0].values            
+        
         df_haplogroup_all = pd.read_csv(sample_name, sep="\t", engine='python')    
-        df_haplogroup_all = df_haplogroup_all.sort_values(by=['haplogroup'])        
-        
-        df_haplogroup_trimmed = df_haplogroup_all.copy()     
-        
+        df_haplogroup_all = df_haplogroup_all.sort_values(by=['haplogroup'])                
+        df_haplogroup_trimmed = df_haplogroup_all.copy()             
         df_derived = df_haplogroup_all.copy()
+
         df_derived = df_derived[df_derived["state"] == "D"]        
         
         df_haplogroup_trimmed['haplogroup'] = df_haplogroup_trimmed['haplogroup'].str.replace('~', '')        
@@ -301,6 +315,7 @@ if __name__ == "__main__":
         init_hg = get_hg_root(hg)           
         
         df_intermediate = get_intermediate_branch(init_hg,hg_intermediate)        
+        
         qc_one = calc_score_one(df_intermediate,df_haplogroup_trimmed)   
         
         df_haplogroup_trimmed = df_haplogroup_trimmed[~df_haplogroup_trimmed.haplogroup.isin(intermediates)]        
@@ -310,6 +325,9 @@ if __name__ == "__main__":
         
         dict_hg = get_putative_hg_list(init_hg, hg, df_haplogroup_trimmed, df_haplogroup_all)            
         keys = sorted(dict_hg.keys(), reverse=True)        
+        
+        keys, tmp_hg = process_keys(keys)
+        
         mismatches = []        
         t = 2    #max mismatch for preffix
         ## look for the preffix from bottom to the root of the tree
@@ -325,7 +343,11 @@ if __name__ == "__main__":
                 break
             mismatches.append(mismatch)                                        
         putative_ancestral_hg = get_putative_ancenstral_hg(df_haplogroup_all, putative_hg )
-    
+        
+        for i in tmp_hg:
+            if putative_hg in i:
+                putative_hg = i
+        
         #print(putative_hg)
         ### Output        
         header = "Sample_name\tHg\tHg_marker\tTotal_reads\tValid_markers\tQC-score\tQC-1\tQC-2\tQC-3"
